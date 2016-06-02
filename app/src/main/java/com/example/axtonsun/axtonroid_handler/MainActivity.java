@@ -8,17 +8,38 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener{
 
     private TextView textView;
-    private Handler handler = new Handler(){
+    /*private Handler handler = new Handler(){
         @Override
         public void handleMessage(Message msg) {
             textView.setText(""+msg.obj);
             //textView.setText(" "+msg.arg1+"- "+msg.arg2);
         }
+    };*/
+
+    /**
+     * Handler负责发送消息
+     * Looper负责接收Handler发送的消息 并直接把消息回传给Handler自己
+     * MessageQueue就是一个存储消息的容器
+     */
+
+    private Handler handler = new Handler(new Handler.Callback() {
+        @Override
+        public boolean handleMessage(Message message) {//打印Tast
+            Toast.makeText(getApplicationContext(),""+1, Toast.LENGTH_SHORT).show();
+            return true;// true 之后的 handleMessage不会进行执行 截获了
+        }
+    }){
+        @Override
+        public void handleMessage(Message msg) {
+            Toast.makeText(getApplicationContext(),""+2, Toast.LENGTH_SHORT).show();
+        }
     };
+
     private ImageView imageView;
     private int images[]={R.drawable.guide_image1,R.drawable.guide_image2,R.drawable.guide_image3};
     private int index;
@@ -74,7 +95,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     person.name = "Axton";
                     message.obj=person;
                     //handler.sendMessage(message);
-                    message.sendToTarget();
+                    message.sendToTarget();//调用了自己的sendMessage
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -104,7 +125,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     public void onClick(View view) {
-        handler.removeCallbacks(myRunnable);
-
+        //handler.removeCallbacks(myRunnable);//移除 动画图片不再更新
+        handler.sendEmptyMessage(1);
     }
 }
