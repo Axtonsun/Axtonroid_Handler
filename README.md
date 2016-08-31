@@ -1,5 +1,6 @@
 # Axtonroid_Handler
 ###学习来源
+[浅析Android中的消息机制 ](http://blog.csdn.net/liuhe688/article/details/6407225 "liuhe688")  
 [Handler](http://www.jianshu.com/p/6bf88b69c13f " 我欲举头望明月")   
 [Handler解析](http://www.jianshu.com/p/2e3bd373d2df " phoenixsky")   
 [Android_Handler](http://www.jianshu.com/p/8f0e1dbd6e8e " ben_speed")   
@@ -8,7 +9,9 @@
 ####什么是Handler
 android处理用来更新UI的一套机制,也是消息处理的一套机制,可以用来发送消息,也可以用来处理消息.
 ####为什么要用Handler
-主要被用于解决子线程上执行更新UI的操作
+* 主要被用于解决子线程上执行更新UI的操作
+* Android系统中的视图组件并不是线程安全的，如果要更新视图，必须在主线程中更新，不可以在子线程中执行更新的操作。
+
 ####为什么要设计只能通过Handler来更新UI
 * 更新界面错乱  
  `多个线程更新UI，并且不加锁`
@@ -22,6 +25,7 @@ android处理用来更新UI的一套机制,也是消息处理的一套机制,可
 * MessageQueue：消息队列(一个存储消息的容器)
 * Looper：消息循环，用于从消息队列中取出消息(负责接收Handler发送的消息 并直接把消息回传给Handler自己)
 * Handler：消息处理(负责发送消息)
+![](http://hi.csdn.net/attachment/201105/10/0_130499718434db.gif)
 
 ####Handler的使用
 * 初始化:为了使用Handler，必须初始化。
@@ -29,18 +33,25 @@ android处理用来更新UI的一套机制,也是消息处理的一套机制,可
 * 而在自己创建的线程中，需要**首先调用Looper.prepare();方法用来初始化MessageQueue和实例化Looper并设置Looper作为ThreadLocal的值**，然后调用Looper.loop()；方法进行消息的循环和处理。
 * 或者在构造时使用已经初始化的Looper，这样的话，消息的处理依然是在Looper初始化时所在的线程。
 * 扩展Handler或者实现Handler.Callback接口作为Handler的构造参数，并实现handleMessage方法。实例化Handler子类时，应该在prepare和loop之间进行。
-* 获得Handler对象实例，调用方法发送消息到消息队列。消息可以是Runnable或Message类型，分别是使用post和send方法。  
+* 获得Handler对象实例，调用方法发送消息到消息队列。消息可以是Runnable或Message类型，分别是使用post和send方法。 
+
 1.Handler初始化
 ```
  private Handler handler = new Handler(){
         @Override
         public void handleMessage(Message msg) {
+            //2.1 
             textView.setText(""+msg.obj);
             //textView.setText(" "+msg.arg1+"- "+msg.arg2);
+            //2.2
+            if(msg.what == COMPLETED){
+               //进行一些UI操作
+               //子线程通过handler对象告知主线程 由主线程更新视图
+            }
         }
     };
 ```
-2.在`onCreate`中新建Thread
+2.1在`onCreate`中新建Thread
 ```
   new Thread(){
             @Override
@@ -63,6 +74,25 @@ android处理用来更新UI的一套机制,也是消息处理的一套机制,可
             }
         }.start();
 ```        
+2.2 通过新建内部类
+```
+   //在onCreate中
+   new WorkThread().start();
+```
+
+```
+private class WorkThread extends Thread{
+   @Override
+   public void run(){
+   //......处理比较耗时的操作
+   
+   //处理完成后给handler发送消息
+   Mseeage msg = new Message();
+   msg.what = COMPLETED;
+   handler.sendMessage(msg);
+   }
+}
+```
 在线程中使用Handler的步骤
 * 调用Looper.prepare()为当前线程创建Looper对象，创建Looper对象时，它的构造器会创建与之配套的MessageQueue
 * 有了Looper后，创建Handler子类的实例，重写handleMessage()方法，该方法负责处理来自于其他线程的消息
@@ -139,14 +169,17 @@ Handler handler;
 new Thread() {
             @Override
             public void run() {
-                Looper.prepare();//将该线程的looper对象存入threadLocal
+                Looper.prepare();//创建消息队列
+                
                 handler = new Handler() {
                     @Override
                     public void handleMessage(Message msg) {
+                        //处理收到的消息
                         Log.i(TAG, "handleMessage:  " + Thread.currentThread());
                     }
                 };
-                Looper.loop();
+                
+                Looper.loop();//进入消息循环
             }
         }.start();
 //休眠500毫秒,待子线程handler创建完成
